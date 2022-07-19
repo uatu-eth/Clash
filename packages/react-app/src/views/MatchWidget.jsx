@@ -3,21 +3,22 @@ import React from "react";
 import { TokenWidget } from "./Tokens";
 import { Link } from "react-router-dom";
 import { battle } from "./Match";
+import { useEffect } from "react";
+import { useState } from "react";
 
 export const tokenToName = token => `${token.contract.name} #${token.tokenID}`;
 
 export const matchDate = (epochId, battler) =>
   new Date((parseInt(battler.startTimestamp) + epochId * parseInt(battler.matchInterval)) * 1000);
 
-export const MILADY_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-export const AZUKI_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+export const COMETH_ADDRESS = "0x5fbdb2315678afecb367f032d93f642f64180aa3";
+export const ORCS_ADDRESS = "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9";
 
 function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
-function MatchWidget(props) {
-  const EXAMPLE_GRAPHQL = gql`
+const MATCH_GRAPHQL = gql`
   query getToken($homeId: ID!, $awayId: ID!, $epoch: String){
     homeToken: token(id: $homeId) {
       id
@@ -26,7 +27,6 @@ function MatchWidget(props) {
         name
       }
       tokenID
-      stats
       owner {
         id
       }
@@ -38,12 +38,11 @@ function MatchWidget(props) {
         name
       }
       tokenID
-      stats
       owner {
         id
       }
     }
-    matches(where: {homeToken:$homeId, epoch: $epoch}) {
+    matches(where: { homeToken: $homeId, epoch: $epoch }) {
       id
       winner {
         id
@@ -63,6 +62,10 @@ function MatchWidget(props) {
   }
   `;
 
+function MatchWidget(props) {
+  const [homeStats, setHomeStats] = useState(["...", "...", "..."]);
+  const [awayStats, setAwayStats] = useState(["...", "...", "..."]);
+
   // Loop through collections until we find the tokenID that fits this offset.
   const thisGlobalId = parseInt(props.p.contract.offset) + parseInt(props.p.tokenID);
 
@@ -75,8 +78,8 @@ function MatchWidget(props) {
     : thisGlobalId;
 
   //If greater than or equal to Azuki offset, it is an Azuki
-  const homeContract = parseInt(homeGlobalId) < 75 ? MILADY_ADDRESS.toLowerCase() : AZUKI_ADDRESS.toLowerCase();
-  const awayContract = parseInt(awayGlobalId) < 75 ? MILADY_ADDRESS.toLowerCase() : AZUKI_ADDRESS.toLowerCase();
+  const homeContract = parseInt(homeGlobalId) < 75 ? COMETH_ADDRESS.toLowerCase() : ORCS_ADDRESS.toLowerCase();
+  const awayContract = parseInt(awayGlobalId) < 75 ? COMETH_ADDRESS.toLowerCase() : ORCS_ADDRESS.toLowerCase();
 
   const homeTokenId = parseInt(homeGlobalId) - (parseInt(homeGlobalId) < 75 ? 0 : 75);
   const awayTokenId = parseInt(awayGlobalId) - (parseInt(awayGlobalId) < 75 ? 0 : 75);
@@ -84,28 +87,40 @@ function MatchWidget(props) {
   const homeId = homeContract + "_" + homeTokenId;
   const awayId = awayContract + "_" + awayTokenId;
 
-  console.log((thisGlobalId - parseInt(props.epoch.random)) % parseInt(props.battler.metaSupply));
+  useEffect(() => {
+    async function fetchData() {
+      if (data && data.homeToken && props.writeContracts.Battler) {
+        props.writeContracts.Battler.tokenStats(data.homeToken.contract.id, data.homeToken.tokenID).then(x => setHomeStats(x));
+        props.writeContracts.Battler.tokenStats(data.awayToken.contract.id, data.awayToken.tokenID).then(x => setAwayStats(x));
+      }
+    }
+    fetchData();
+  }, [props.writeContracts.Battler]);
 
-  const { loading, data, error } = useQuery(EXAMPLE_GRAPHQL, {
+  const { loading, data, error } = useQuery(MATCH_GRAPHQL, {
     pollInterval: 2500,
     variables: {
       homeId,
       awayId,
-      epoch: props.epoch.id
+      epoch: props.epoch.id,
     },
   });
 
-  if (loading || error) {
+  if (loading) {
     return <div>LOADING!</div>;
   }
 
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
   const victoryA = battle(
-    parseInt(data.homeToken.stats[0]),
-    parseInt(data.awayToken.stats[0]),
-    parseInt(data.homeToken.stats[1]),
-    parseInt(data.awayToken.stats[1]),
-    parseInt(data.homeToken.stats[2]),
-    parseInt(data.awayToken.stats[2]),
+    parseInt(homeStats[0]),
+    parseInt(awayStats[0]),
+    parseInt(homeStats[1]),
+    parseInt(awayStats[1]),
+    parseInt(homeStats[2]),
+    parseInt(awayStats[2]),
     props.epoch.random,
   );
 
@@ -115,13 +130,19 @@ function MatchWidget(props) {
         <div>
           <h2>{matchDate(props.epoch.id, data.battler).toUTCString()}</h2>
           <div style={{ display: "flex", justifyContent: "center" }}>
-            <TokenWidget p={data.homeToken} write={props.writeContracts} />
+            <TokenWidget p={data.homeToken} writeContracts={props.writeContracts} />
             vs
-            <TokenWidget p={data.awayToken} write={props.writeContracts} />
+            <TokenWidget p={data.awayToken} writeContracts={props.writeContracts} />
           </div>
           <div>
             <div>
-              {data.matches.length > 0 ? <div>Resolved | Winner: {tokenToName(data.matches[0].winner)}</div> : <div>Unresolved | Winner: {victoryA === 1 ? tokenToName(data.homeToken) : tokenToName(data.awayToken)} </div>}
+              {data.matches.length > 0 ? (
+                <div>Resolved | Winner: {tokenToName(data.matches[0].winner)}</div>
+              ) : (
+                <div>
+                  Unresolved | Predicted Winner: {victoryA === 1 ? tokenToName(data.homeToken) : tokenToName(data.awayToken)}
+                </div>
+              )}
             </div>
           </div>
         </div>

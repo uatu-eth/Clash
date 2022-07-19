@@ -6,42 +6,13 @@ async function main() {
 
   await execute("Battler", { from, log: true }, "simulateEpoch", 0, 313);
 
-  await execute(
-    "ERC721PresetMinterPauserAutoId",
-    { from, log: true },
-    "mint",
-    from
-  );
-  await execute(
-    "ERC721PresetMinterPauserAutoId",
-    { from, log: true },
-    "mint",
-    from
-  );
-  await execute(
-    "ERC721PresetMinterPauserAutoId",
-    { from, log: true },
-    "mint",
-    from
-  );
-  await execute(
-    "ERC721PresetMinterPauserAutoId",
-    { from, log: true },
-    "mint",
-    from
-  );
-  await execute(
-    "ERC721PresetMinterPauserAutoId",
-    { from, log: true },
-    "mint",
-    from
-  );
-  await execute(
-    "ERC721PresetMinterPauserAutoId",
-    { from, log: true },
-    "mint",
-    from
-  );
+  for (let i = 0; i < 75; i += 1) {
+    await execute("Cometh", { from, log: true }, "mint", from);
+  }
+
+  for (let i = 0; i < 100; i += 1) {
+    await execute("EtherOrcsPoly", { from, log: true }, "mint", from);
+  }
 }
 
 main()

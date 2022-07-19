@@ -20,8 +20,8 @@ export const battle = (healthA, healthB, healthPerTurnA, healthPerTurnB, damageA
   const hashB = new Array(n);
 
   // Prevent underflow
-  healthsA[0] = healthA + damageB * n;
-  healthsB[0] = healthB + damageA * n;
+  healthsA[0] = healthA + 100000;
+  healthsB[0] = healthB + 100000;
 
   hashA[0] = mimcHash(0)(rand);
   hashB[1] = mimcHash(0)(rand + 1);

@@ -1,6 +1,6 @@
 pragma solidity >=0.8.0 <0.9.0;
 
-import "../interfaces/IResolver.sol";
+import "../../interfaces/IResolver.sol";
 
 contract BasicResolver is IResolver {
     uint256 private constant SKILL_COUNT = 3;

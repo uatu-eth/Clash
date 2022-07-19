@@ -4,9 +4,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  const cometh = await deploy("ERC721PresetMinterPauserAutoId", {
+  const cometh = await deploy("Cometh", {
     from: deployer,
-    args: ["Cometh", "COMETH", ""],
+    args: [],
     log: true,
     waitConfirmations: 5,
   });
@@ -24,9 +24,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     waitConfirmations: 5,
   });
 
-  const orcs = await deploy("ERC721PresetMinterPauserAutoId", {
+  const orcs = await deploy("EtherOrcsPoly", {
     from: deployer,
-    args: ["EthersOrcs", "ORCS", ""],
+    args: [],
     log: true,
     waitConfirmations: 5,
   });
