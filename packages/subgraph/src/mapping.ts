@@ -111,7 +111,7 @@ export function handleMatchResolved(event: MatchResolved): void {
   entity.epoch = event.params.epochId.toString();
   entity.homeToken = event.params.homeCollection.toHexString() + "_" + event.params.homeTokenId.toString();
   entity.awayToken = event.params.awayCollection.toHexString() + "_" + event.params.awayTokenId.toString();
-  entity.winner = event.params.winner.equals(ZERO) ? entity.homeToken : entity.awayToken;
+  entity.winner = event.params.winner.equals(ZERO) ? entity.awayToken : entity.homeToken;
 
   entity.save();
 }

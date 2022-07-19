@@ -1,13 +1,13 @@
 const snarkjs = require("snarkjs");
 
-export const calculateBattleProof = async (token1, token2, rand) => {
+export const calculateBattleProof = async (homeStats, awayStats, rand) => {
   const input = {
-    healthA: token1.stats[0],
-    healthB: token2.stats[0],
-    healthPerTurnA: token1.stats[1],
-    healthPerTurnB: token2.stats[1],
-    damageA: token1.stats[2],
-    damageB: token2.stats[2],
+    healthA: homeStats[0],
+    healthB: awayStats[0],
+    healthPerTurnA: homeStats[1],
+    healthPerTurnB: awayStats[1],
+    damageA: homeStats[2],
+    damageB: awayStats[2],
     rand,
   };
 

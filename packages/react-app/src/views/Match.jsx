@@ -1,5 +1,5 @@
 import { gql, useQuery } from "@apollo/client";
-import React from "react";
+import React, { useState } from "react";
 import { TokenWidget } from "./Tokens";
 import { Button } from "antd";
 import { calculateBattleProof } from "../snarks.js"
@@ -8,6 +8,7 @@ import { tokenToName } from "./MatchWidget";
 import { mimcHash } from "@darkforest_eth/hashing";
 import bigInt from "big-integer";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 
 const n = 50;
 
@@ -40,8 +41,7 @@ export const battle = (healthA, healthB, healthPerTurnA, healthPerTurnB, damageA
   return healthsA[n - 1] > healthsB[n - 1] ? 1 : 0;
 };
 
-function Match(props) {
-  const EXAMPLE_GRAPHQL = gql`
+const MATCH_GRAPHQL = gql`
   query getToken($id: ID, $homeId: ID, $awayId: ID,$epochId: ID){
     match(id: $id) {
       id
@@ -79,7 +79,6 @@ function Match(props) {
         offset
       }
       tokenID
-      stats
       owner {
         id
       }
@@ -92,13 +91,16 @@ function Match(props) {
         offset
       }
       tokenID
-      stats
       owner {
         id
       }
     }
   }
   `;
+
+function Match(props) {
+  const [homeStats, setHomeStats] = useState(["...", "...", "..."]);
+  const [awayStats, setAwayStats] = useState(["...", "...", "..."]);
 
   const location = useLocation();
   const id = location.pathname.split("/")[2].replace(" ", "");
@@ -107,7 +109,17 @@ function Match(props) {
   const awayId = arr[1] + "_" + arr[3];
   const epochId = arr[4];
 
-  const { loading, data } = useQuery(EXAMPLE_GRAPHQL, {
+  useEffect(() => {
+    async function fetchData() {
+      if (data && data.homeToken && props.writeContracts.Battler) {
+        props.writeContracts.Battler.tokenStats(data.homeToken.contract.id, data.homeToken.tokenID).then(x => setHomeStats(x));
+        props.writeContracts.Battler.tokenStats(data.awayToken.contract.id, data.awayToken.tokenID).then(x => setAwayStats(x));
+      }
+    }
+    fetchData();
+  }, [props.writeContracts.Battler]);
+
+  const { loading, data } = useQuery(MATCH_GRAPHQL, {
     pollInterval: 2500,
     variables: {
       id,
@@ -122,12 +134,12 @@ function Match(props) {
   }
 
   const victoryA = battle(
-    parseInt(data.homeToken.stats[0]),
-    parseInt(data.awayToken.stats[0]),
-    parseInt(data.homeToken.stats[1]),
-    parseInt(data.awayToken.stats[1]),
-    parseInt(data.homeToken.stats[2]),
-    parseInt(data.awayToken.stats[2]),
+    parseInt(homeStats[0]),
+    parseInt(awayStats[0]),
+    parseInt(homeStats[1]),
+    parseInt(awayStats[1]),
+    parseInt(homeStats[2]),
+    parseInt(awayStats[2]),
     data.epoch.random,
   );
 
@@ -146,11 +158,11 @@ function Match(props) {
           <div style={{ display: "flex", flexDirection: 'column' }}>
             <div style={{ display: "flex" }}>
               <Link to={`/token/${data.homeToken.id}`}>
-                <TokenWidget p={data.homeToken} />
+                <TokenWidget p={data.homeToken} writeContracts={props.writeContracts} />
               </Link>
               vs
               <Link to={`/token/${data.awayToken.id}`}>
-                <TokenWidget p={data.awayToken} />
+                <TokenWidget p={data.awayToken} writeContracts={props.writeContracts} />
               </Link>
 
             </div>
@@ -159,13 +171,13 @@ function Match(props) {
             </div>
               :
               <div>
-                <div>Unresolved | Winner: {victoryA === 1 ? tokenToName(data.homeToken) : tokenToName(data.awayToken)} </div>
+                <div>Unresolved | Predicted Winner: {victoryA === 1 ? tokenToName(data.homeToken) : tokenToName(data.awayToken)} </div>
                 <Button
                   style={{ marginTop: 8 }}
                   onClick={async () => {
                     console.log("generating PROOF")
                     // This is a bit glitchy and slow
-                    const proof = await calculateBattleProof(data.homeToken, data.awayToken, data.epoch.random);
+                    const proof = await calculateBattleProof(homeStats.map(s => parseInt(s)), awayStats.map(s => parseInt(s)), data.epoch.random);
 
                     props.tx(
                       await props.writeContracts.Battler.battle(
