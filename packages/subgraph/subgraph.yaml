@@ -3,23 +3,49 @@ schema:
   file: ./src/schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: YourContract
+    name: Battler
     network: localhost
     source:
-      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-      abi: YourContract
-      startBlock: 1
+      abi: Battler
+      address: "0x0165878A594ca255338adfa4d48449f69242Eb8F"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
-        - Purpose
-        - Sender
+        - Epoch
       abis:
-        - name: YourContract
-          file: ./abis/localhost_YourContract.json
+        - name: Battler
+          file: ./abis/localhost_Battler.json
+        - name: ERC721
+          file: ./abis/localhost_ERC721.json
       eventHandlers:
-        - event: SetPurpose(address,string)
-          handler: handleSetPurpose
+        - event: BattlerCreation(uint256,uint256,uint256)
+          handler: handleBattlerCreation
+        - event: EpochSimulated(uint256,uint256)
+          handler: handleEpochSimulated
+        - event: MatchResolved(address,address,address,uint256,uint256,uint256,uint256)
+          handler: handleMatchResolved
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+        - event: AddCollection(address,address,uint256)
+          handler: handleAddCollection
+      file: ./src/mapping.ts
+  - kind: ethereum/contract
+    name: ERC721
+    network: localhost
+    source:
+      abi: ERC721
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - Epoch
+      abis:
+        - name: ERC721
+          file: ./abis/localhost_ERC721.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransferERC721
       file: ./src/mapping.ts

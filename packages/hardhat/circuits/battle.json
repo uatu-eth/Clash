@@ -1,0 +1,9 @@
+{
+    "healthA": "100",
+    "healthPerTurnA": "1",
+    "damageA": "20",
+    "healthB": "200",
+    "healthPerTurnB": "20",
+    "damageB": "5",
+    "rand": "5"
+}

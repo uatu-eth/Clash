@@ -1,15 +1,44 @@
-type Purpose @entity {
+type Battler @entity {
   id: ID!
-  sender: Sender!
-  purpose: String!
-  createdAt: BigInt!
-  transactionHash: String!
+  matchInterval: BigInt!
+  reward: BigInt!
+  startTimestamp: BigInt!
+  metaSupply: BigInt!
 }
 
-type Sender @entity {
+type Epoch @entity {
   id: ID!
-  address: Bytes!
-  purposes: [Purpose!] @derivedFrom(field: "sender")
-  createdAt: BigInt!
-  purposeCount: BigInt!
+  random: BigInt!
+  matches: [Match!]! @derivedFrom(field: "epoch")
+}
+
+type Match @entity {
+  id: ID!
+  epoch: Epoch!
+  homeToken: Token!
+  awayToken: Token!
+  winner: Token!
+}
+
+type Token @entity {
+  id: ID!
+  contract: TokenContract!
+  tokenID: BigInt!
+  owner: Owner!
+  homeMatches: [Match!]! @derivedFrom(field: "homeToken")
+  awayMatches: [Match!]! @derivedFrom(field: "awayToken")
+}
+
+type TokenContract @entity {
+  id: ID!
+  name: String!
+  offset: BigInt!
+  resolver: Bytes!
+  tokens: [Token!]! @derivedFrom(field: "contract")
+}
+
+type Owner @entity {
+  id: ID!
+  balance: BigInt!
+  tokens: [Token!]! @derivedFrom(field: "owner")
 }
