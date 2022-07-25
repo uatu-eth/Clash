@@ -20,11 +20,11 @@ template battle(nStats, nRounds) {
     signal homeRecovery;
     signal awayRecovery;
     // Boolean. 1 if home fighter wins, 0 otherwise.
- 	signal output homeVictory;
+    signal output homeVictory;
 
     // Fighters health at the end of each round.
- 	signal homeHealths[nRounds];
- 	signal awayHealths[nRounds];
+    signal homeHealths[nRounds];
+    signal awayHealths[nRounds];
     // Used to determine whether each fighter has hit on a given turn.
     signal homeAttackIndex[nRounds];
     signal awayAttackIndex[nRounds];
@@ -32,8 +32,8 @@ template battle(nStats, nRounds) {
     signal homeAttackTurns[nRounds];
     signal awayAttackTurns[nRounds];
     // Whether or not each fighter has hit on a given turn.
- 	signal homeHasHit[nRounds];
- 	signal awayHasHit[nRounds];
+    signal homeHasHit[nRounds];
+    signal awayHasHit[nRounds];
 
     homeHealths[0] <== homeStats[0] + 100000; 
     awayHealths[0] <== awayStats[0] + 100000;
