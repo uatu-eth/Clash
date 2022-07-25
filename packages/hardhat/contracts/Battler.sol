@@ -19,8 +19,6 @@ struct Epoch {
 }
 
 contract Battler is ERC20, Ownable {
-    uint256 private constant ROUNDS = 5;
-
     uint256 private matchInterval;
     uint256 private reward;
     uint256 private startTimestamp;
