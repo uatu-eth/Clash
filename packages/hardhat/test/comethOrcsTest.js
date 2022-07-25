@@ -6,24 +6,44 @@ const snarkjs = require("snarkjs");
 
 use(solidity);
 
+const INPUT = {
+  homeStats: [15, 100, 5, 100],
+  awayStats: [0, 0, 0, 0],
+  rand: 2,
+};
+
 describe("Testing resolvers", function () {
   describe("Testing Battler with Cometh and EtherOrcs", function () {
     let owner;
     let battler;
     let cometh;
-    let orcs;
+    let etherOrcsPoly;
     let comethResolver;
     let orcsResolver;
 
     it("Should deploy contracts", async function () {
       [owner] = await ethers.getSigners();
 
-      const ERC721Factory = await ethers.getContractFactory(
-        "ERC721PresetMinterPauserAutoId"
+      /* Cometh Setup */
+      const ComethFactory = await ethers.getContractFactory("Cometh");
+      const SpaceShipsRulesFactory = await ethers.getContractFactory(
+        "SpaceShipsRules"
+      );
+      const MiningManagerFactory = await ethers.getContractFactory(
+        "MiningManagerV4"
       );
 
-      const RulesFactory = await ethers.getContractFactory("SpaceShipsRules");
+      cometh = await ComethFactory.deploy();
+
+      const rules = await SpaceShipsRulesFactory.deploy();
+      await rules.makeRule(1, 100, 0, 0, 0);
+
+      const miningManager = await MiningManagerFactory.deploy(rules.address);
+
+      /* EtherOrcs Setup */
       const OrcsFactory = await ethers.getContractFactory("EtherOrcsPoly");
+
+      etherOrcsPoly = await OrcsFactory.deploy();
 
       const ComethResolverFactory = await ethers.getContractFactory(
         "ComethResolver"
@@ -34,12 +54,9 @@ describe("Testing resolvers", function () {
       const VerifierFactory = await ethers.getContractFactory("PlonkVerifier");
       const BattlerFactory = await ethers.getContractFactory("Battler");
 
-      cometh = await ERC721Factory.deploy("Cometh", "COMETH", "");
-      orcs = await ERC721Factory.deploy("EtherOrcs", "ORCS", "");
-
-      const rules = await RulesFactory.deploy();
-      const etherOrcsPoly = await OrcsFactory.deploy();
-      comethResolver = await ComethResolverFactory.deploy(rules.address);
+      comethResolver = await ComethResolverFactory.deploy(
+        miningManager.address
+      );
       orcsResolver = await OrcsResolverFactory.deploy(etherOrcsPoly.address);
 
       const verifier = await VerifierFactory.deploy();
@@ -49,23 +66,28 @@ describe("Testing resolvers", function () {
         verifier.address,
         [75, 100],
         [comethResolver.address, orcsResolver.address],
-        [cometh.address, orcs.address]
+        [cometh.address, etherOrcsPoly.address]
       );
 
       for (let i = 0; i < 75; i += 1) {
-        cometh.mint(owner.address);
+        cometh.safeMint(owner.address);
       }
 
       for (let i = 0; i < 2; i += 1) {
-        orcs.mint(owner.address);
+        etherOrcsPoly.safeMint(owner.address);
       }
     });
 
+    it("tokenByIndex should work", async function () {
+      expect(await cometh.tokenByIndex(73)).to.deep.equal(1000073);
+    });
+
     it("Should return the correct stats 0", async function () {
-      expect(await comethResolver.tokenStats(73)).to.deep.equal([
-        BigNumber.from(0),
+      expect(await comethResolver.tokenStats(1000073)).to.deep.equal([
         BigNumber.from(15),
-        BigNumber.from(300),
+        BigNumber.from(100),
+        BigNumber.from(5),
+        BigNumber.from(100),
       ]);
     });
 
@@ -74,12 +96,21 @@ describe("Testing resolvers", function () {
         BigNumber.from(0),
         BigNumber.from(0),
         BigNumber.from(0),
+        BigNumber.from(0),
       ]);
     });
 
     it("Should not allow battling before epoch simulated", async function () {
       await expect(
-        battler.battle(orcs.address, orcs.address, 0, 1, 0, 0, "0x")
+        battler.battle(
+          etherOrcsPoly.address,
+          etherOrcsPoly.address,
+          0,
+          1,
+          0,
+          0,
+          "0x"
+        )
       ).to.be.revertedWith("This epochId has not been simulated yet");
     });
 
@@ -91,7 +122,15 @@ describe("Testing resolvers", function () {
 
     it("Should not allow battling tokens that are not matched", async function () {
       await expect(
-        battler.battle(orcs.address, orcs.address, 0, 1, 0, 0, "0x")
+        battler.battle(
+          etherOrcsPoly.address,
+          etherOrcsPoly.address,
+          0,
+          1,
+          0,
+          0,
+          "0x"
+        )
       ).to.be.revertedWith("The given tokens are not matched in this epochId.");
     });
 
@@ -103,23 +142,13 @@ describe("Testing resolvers", function () {
 
     it("Should not allow battling a cometh and orc token without a valid proof ", async function () {
       await expect(
-        battler.battle(cometh.address, orcs.address, 73, 0, 0, 0, "0x")
+        battler.battle(cometh.address, etherOrcsPoly.address, 73, 0, 0, 0, "0x")
       ).to.be.revertedWith("Invalid proof.");
     });
 
     it("Should not allow battling tokens with the wrong winner value", async function () {
-      const input = {
-        healthA: 0,
-        healthB: 0,
-        healthPerTurnA: 15,
-        healthPerTurnB: 0,
-        damageA: 300,
-        damageB: 0,
-        rand: 2,
-      };
-
       const { proof, publicSignals } = await snarkjs.plonk.fullProve(
-        input,
+        INPUT,
         "./artifacts/circom/battle.wasm",
         "./artifacts/circom/battle.zkey"
       );
@@ -132,7 +161,7 @@ describe("Testing resolvers", function () {
       await expect(
         battler.battle(
           cometh.address,
-          orcs.address,
+          etherOrcsPoly.address,
           73,
           0,
           0,
@@ -143,18 +172,8 @@ describe("Testing resolvers", function () {
     });
 
     it("Should allow battling tokens with the correct winner value", async function () {
-      const input = {
-        healthA: 0,
-        healthB: 0,
-        healthPerTurnA: 15,
-        healthPerTurnB: 0,
-        damageA: 300,
-        damageB: 0,
-        rand: 2,
-      };
-
       const { proof, publicSignals } = await snarkjs.plonk.fullProve(
-        input,
+        INPUT,
         "./artifacts/circom/battle.wasm",
         "./artifacts/circom/battle.zkey"
       );
@@ -167,7 +186,7 @@ describe("Testing resolvers", function () {
       await expect(
         battler.battle(
           cometh.address,
-          orcs.address,
+          etherOrcsPoly.address,
           73,
           0,
           0,
@@ -176,7 +195,15 @@ describe("Testing resolvers", function () {
         )
       )
         .to.emit(battler, "MatchResolved")
-        .withArgs(cometh.address, orcs.address, owner.address, 73, 0, 1, 0);
+        .withArgs(
+          cometh.address,
+          etherOrcsPoly.address,
+          owner.address,
+          1000073,
+          0,
+          1,
+          0
+        );
     });
   });
 });

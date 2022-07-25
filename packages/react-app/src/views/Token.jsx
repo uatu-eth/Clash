@@ -19,6 +19,7 @@ query getToken($id: ID!){
         offset
       }
       tokenID
+      tokenIndex
       owner {
         id
       }
@@ -35,18 +36,21 @@ query getToken($id: ID!){
     matchInterval
     reward
     startTimestamp
-    metaSupply
+    globalSupply
+  }
+  tokenContracts {
+    id
+    offset
   }
 }
 `;
 
 function Token(props) {
-  const [stats, setStats] = useState(["...", "...", "..."]);
+  const [stats, setStats] = useState(["...", "...", "...", "..."]);
 
   const location = useLocation();
   const id = location.pathname.split("/")[2];
   const { loading, data, error } = useQuery(TOKEN_GRAPHQL, { pollInterval: 2500, variables: { id } });
-
 
   useEffect(() => {
     async function fetchData() {
@@ -72,8 +76,9 @@ function Token(props) {
                     <h3>Stats</h3>
                     <ul>
                       <li>Health: {stats[0].toString()}</li>
-                      <li>Health per turn: {stats[1].toString()}</li>
-                      <li>Damage: {stats[2].toString()}</li>
+                      <li>Damage: {stats[1].toString()}</li>
+                      <li>Attack recover time: {stats[2].toString()}</li>
+                      <li>Health per turn: {stats[3].toString()}</li>
                     </ul>
                   </div>
                 </div>
@@ -84,6 +89,7 @@ function Token(props) {
                     <div>
                       <MatchWidget
                         battler={data.battler}
+                        tokenContracts={data.tokenContracts}
                         epoch={data.epoches.find(e => e.id === i.toString())}
                         p={data.token}
                         tx={props.tx}

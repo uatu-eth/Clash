@@ -6,43 +6,39 @@ import { calculateBattleProof } from "../snarks.js"
 import { useLocation } from "react-router-dom";
 import { tokenToName } from "./MatchWidget";
 import { mimcHash } from "@darkforest_eth/hashing";
-import bigInt from "big-integer";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import bigInt from "big-integer";
 
-const n = 50;
+const nRounds = 10;
 
-export const battle = (healthA, healthB, healthPerTurnA, healthPerTurnB, damageA, damageB, rand) => {
-  const healthsA = new Array(n);
-  const healthsB = new Array(n);
-  const isHitA = new Array(n);
-  const isHitB = new Array(n);
-  const hashA = new Array(n);
-  const hashB = new Array(n);
+export const battle = (homeStats, awayStats, rand) => {
+  const transcript = [];
+  const healthsA = new Array(nRounds);
+  const healthsB = new Array(nRounds);
 
   // Prevent underflow
-  healthsA[0] = healthA + 100000;
-  healthsB[0] = healthB + 100000;
+  healthsA[0] = homeStats[0] + 100000;
+  healthsB[0] = awayStats[0] + 100000;
 
-  hashA[0] = mimcHash(0)(rand);
-  hashB[1] = mimcHash(0)(rand + 1);
+  // const homeRand = mimcHash(0)(rand);
+  // const awayRand = mimcHash(0)(rand + 1);
 
-  for (var i = 1; i < n; i++) {
-    hashA[i] = mimcHash(0)(hashA[i - 1]);
-    hashB[i] = mimcHash(0)(hashB[i - 1]);
+  for (var i = 1; i < nRounds; i++) {
+    const homeRound = i % homeStats[2] === 0 ? 1 : 0;
+    const awayRound = i % awayStats[2] === 0 ? 1 : 0;
 
-    isHitA[i] = hashA[i].mod(2).eq(bigInt(0)) ? 1 : 0;
-    isHitB[i] = hashB[i].mod(2).eq(bigInt(0)) ? 1 : 0;
+    healthsA[i] = healthsA[i - 1] + homeStats[3] - awayStats[1] * awayRound;
+    healthsB[i] = healthsB[i - 1] + awayStats[3] - homeStats[1] * homeRound;
 
-    healthsA[i] = healthsA[i - 1] + healthPerTurnA - damageB * isHitA[i];
-    healthsB[i] = healthsB[i - 1] + healthPerTurnB - damageA * isHitB[i];
+    transcript.push(`Home token +${homeStats[3]}, -${awayStats[1] * awayRound}. New health: ${healthsA[i]}. Away token +${awayStats[3]}, -${homeStats[1] * homeRound}. New health: ${healthsB[i]}`);
   }
 
-  return healthsA[n - 1] > healthsB[n - 1] ? 1 : 0;
+  return [healthsA[nRounds - 1] > healthsB[nRounds - 1] ? 1 : 0, transcript];
 };
 
 const MATCH_GRAPHQL = gql`
-  query getToken($id: ID, $homeId: ID, $awayId: ID,$epochId: ID){
+  query getToken($id: ID, $homeId: ID, $awayId: ID, $epochId: ID){
     match(id: $id) {
       id
       epoch {
@@ -67,7 +63,7 @@ const MATCH_GRAPHQL = gql`
     battler(id: 0) {
       id
       matchInterval
-      metaSupply
+      globalSupply
       reward
       startTimestamp
     }
@@ -79,6 +75,7 @@ const MATCH_GRAPHQL = gql`
         offset
       }
       tokenID
+      tokenIndex
       owner {
         id
       }
@@ -91,6 +88,7 @@ const MATCH_GRAPHQL = gql`
         offset
       }
       tokenID
+      tokenIndex
       owner {
         id
       }
@@ -99,9 +97,6 @@ const MATCH_GRAPHQL = gql`
   `;
 
 function Match(props) {
-  const [homeStats, setHomeStats] = useState(["...", "...", "..."]);
-  const [awayStats, setAwayStats] = useState(["...", "...", "..."]);
-
   const location = useLocation();
   const id = location.pathname.split("/")[2].replace(" ", "");
   const arr = id.split("_");
@@ -109,6 +104,29 @@ function Match(props) {
   const awayId = arr[1] + "_" + arr[3];
   const epochId = arr[4];
 
+  return (
+    <MatchInner homeId={homeId} awayId={awayId} epochId={epochId} writeContracts={props.writeContracts} tx={props.tx} />
+  );
+}
+
+export function MatchInner(props) {
+  const [homeStats, setHomeStats] = useState(["...", "...", "..."]);
+  const [awayStats, setAwayStats] = useState(["...", "...", "..."]);
+
+
+  const homeSplit = props.homeId.split("_");
+  const awaySplit = props.awayId.split("_");
+  const id = homeSplit[0] + "_" + awaySplit[0] + "_" + homeSplit[1] + "_" + awaySplit[1] + "_" + props.epochId
+
+  const { loading, data } = useQuery(MATCH_GRAPHQL, {
+    pollInterval: 2500,
+    variables: {
+      id,
+      homeId: props.homeId,
+      awayId: props.awayId,
+      epochId: props.epochId,
+    },
+  });
   useEffect(() => {
     async function fetchData() {
       if (data && data.homeToken && props.writeContracts.Battler) {
@@ -117,46 +135,24 @@ function Match(props) {
       }
     }
     fetchData();
-  }, [props.writeContracts.Battler]);
-
-  const { loading, data } = useQuery(MATCH_GRAPHQL, {
-    pollInterval: 2500,
-    variables: {
-      id,
-      homeId,
-      awayId,
-      epochId,
-    },
-  });
+  }, [data, props.writeContracts.Battler]);
 
   if (loading) {
     return <div>Loading...</div>;
   }
 
-  const victoryA = battle(
-    parseInt(homeStats[0]),
-    parseInt(awayStats[0]),
-    parseInt(homeStats[1]),
-    parseInt(awayStats[1]),
-    parseInt(homeStats[2]),
-    parseInt(awayStats[2]),
+  const matchResultInfo = battle(
+    homeStats.map(s => parseInt(s)),
+    awayStats.map(s => parseInt(s)),
     data.epoch.random,
   );
 
-  const homeGlobalId = parseInt(data.homeToken.contract.offset) + parseInt(data.homeToken.tokenID);
-  const awayGlobalId = parseInt(data.awayToken.contract.offset) + parseInt(data.awayToken.tokenID);
-
   return (
     <div style={{ borderStyle: "solid" }}>
-      Epoch: {epochId}
-      Home global ID: {homeGlobalId}
-      Away global ID: {awayGlobalId}
-      Are paired? {((homeGlobalId + parseInt(data.epoch.random)) % parseInt(data.battler.metaSupply) === awayGlobalId) ? "True" : "false"}
-      Home is even multiple? {Math.floor(homeGlobalId / (parseInt(data.epoch.random) % parseInt(data.battler.metaSupply))) % 2 === 0 ? "True" : "false"}
       {loading ? null
         : (
-          <div style={{ display: "flex", flexDirection: 'column' }}>
-            <div style={{ display: "flex" }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: 'center' }}>
               <Link to={`/token/${data.homeToken.id}`}>
                 <TokenWidget p={data.homeToken} writeContracts={props.writeContracts} />
               </Link>
@@ -171,22 +167,22 @@ function Match(props) {
             </div>
               :
               <div>
-                <div>Unresolved | Predicted Winner: {victoryA === 1 ? tokenToName(data.homeToken) : tokenToName(data.awayToken)} </div>
+                <div>Unresolved | Predicted Winner: {matchResultInfo[0] === 1 ? tokenToName(data.homeToken) : tokenToName(data.awayToken)} </div>
                 <Button
                   style={{ marginTop: 8 }}
                   onClick={async () => {
                     console.log("generating PROOF")
                     // This is a bit glitchy and slow
-                    const proof = await calculateBattleProof(homeStats.map(s => parseInt(s)), awayStats.map(s => parseInt(s)), data.epoch.random);
+                    const [proof, publicSignals] = await calculateBattleProof(homeStats.map(s => parseInt(s)), awayStats.map(s => parseInt(s)), data.epoch.random);
 
                     props.tx(
                       await props.writeContracts.Battler.battle(
                         data.homeToken.contract.id,
                         data.awayToken.contract.id,
-                        data.homeToken.tokenID,
-                        data.awayToken.tokenID,
+                        data.homeToken.tokenIndex,
+                        data.awayToken.tokenIndex,
                         data.epoch.id,
-                        victoryA,
+                        publicSignals[0],
                         proof,
                       ),
                     )
@@ -196,6 +192,11 @@ function Match(props) {
                 </Button>
               </div>
             }
+            <div>
+              <ol>
+                {matchResultInfo[1].map(s => <li>{s}</li>)}
+              </ol>
+            </div>
           </div>
         )
       }

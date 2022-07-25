@@ -1,9 +1,15 @@
 {
-    "healthA": "100",
-    "healthPerTurnA": "1",
-    "damageA": "20",
-    "healthB": "200",
-    "healthPerTurnB": "20",
-    "damageB": "5",
-    "rand": "5"
+    "homeStats": [
+        "100",
+        "20",
+        "3",
+        "1"
+    ],
+    "awayStats": [
+        "100",
+        "20",
+        "0",
+        "1"
+    ],
+    "rand": "5141343314"
 }

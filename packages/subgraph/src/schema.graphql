@@ -3,7 +3,7 @@ type Battler @entity {
   matchInterval: BigInt!
   reward: BigInt!
   startTimestamp: BigInt!
-  metaSupply: BigInt!
+  globalSupply: BigInt!
 }
 
 type Epoch @entity {
@@ -24,6 +24,7 @@ type Token @entity {
   id: ID!
   contract: TokenContract!
   tokenID: BigInt!
+  tokenIndex: BigInt!
   owner: Owner!
   homeMatches: [Match!]! @derivedFrom(field: "homeToken")
   awayMatches: [Match!]! @derivedFrom(field: "awayToken")
@@ -32,8 +33,9 @@ type Token @entity {
 type TokenContract @entity {
   id: ID!
   name: String!
-  offset: BigInt!
-  resolver: Bytes!
+  currentTokenIndex: BigInt!
+  offset: BigInt
+  resolver: Bytes
   tokens: [Token!]! @derivedFrom(field: "contract")
 }
 

@@ -17,9 +17,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     waitConfirmations: 5,
   });
 
-  const comethResolver = await deploy("ComethResolver", {
+  const miningManager = await deploy("MiningManagerV4", {
     from: deployer,
     args: [rules.address],
+    log: true,
+    waitConfirmations: 5,
+  });
+
+  const comethResolver = await deploy("ComethResolver", {
+    from: deployer,
+    args: [miningManager.address],
     log: true,
     waitConfirmations: 5,
   });
@@ -38,6 +45,20 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     waitConfirmations: 5,
   });
 
+  const aavegotchi = await deploy("Aavegotchi", {
+    from: deployer,
+    args: [],
+    log: true,
+    waitConfirmations: 5,
+  });
+
+  const aavegotchiResolver = await deploy("AavegotchiResolver", {
+    from: deployer,
+    args: [aavegotchi.address],
+    log: true,
+    waitConfirmations: 5,
+  });
+
   const verifier = await deploy("PlonkVerifier", {
     from: deployer,
     log: true,
@@ -50,9 +71,13 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
       300,
       1,
       verifier.address,
-      [75, 100],
-      [comethResolver.address, orcsResolver.address],
-      [cometh.address, orcs.address],
+      [70, 100, 50],
+      [
+        comethResolver.address,
+        orcsResolver.address,
+        aavegotchiResolver.address,
+      ],
+      [cometh.address, orcs.address, aavegotchi.address],
     ],
     log: true,
     waitConfirmations: 5,

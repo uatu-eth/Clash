@@ -11,7 +11,7 @@ export function getOrCreateBattler(
   let entity = Battler.load(id);
   if (!entity) {
     entity = new Battler(id);
-    entity.metaSupply = ZERO;
+    entity.globalSupply = ZERO;
     entity.matchInterval = ZERO;
     entity.reward = ZERO;
     entity.startTimestamp = ZERO;
@@ -48,6 +48,14 @@ export function getOrCreateToken(
   let entity = Token.load(address.toHexString() + "_" + tokenId.toString());
   if (!entity) {
     entity = new Token(address.toHexString() + "_" + tokenId.toString());
+    entity.contract = address.toHexString();
+    entity.tokenID = tokenId;
+
+    let tokenContract = getOrCreateTokenContract(address);
+    entity.tokenIndex = tokenContract.currentTokenIndex;
+
+    tokenContract.currentTokenIndex = tokenContract.currentTokenIndex.plus(BigInt.fromString("1"));
+    tokenContract.save();
   }
 
   return entity;
@@ -59,6 +67,8 @@ export function getOrCreateTokenContract(
   let entity = TokenContract.load(id.toHexString());
   if (!entity) {
     entity = new TokenContract(id.toHexString());
+    entity.currentTokenIndex = ZERO;
+
     let contract = ERC721.bind(id);
     let name = contract.try_name();
     entity.name = normalize(name.value);
@@ -111,7 +121,7 @@ export function handleMatchResolved(event: MatchResolved): void {
   entity.epoch = event.params.epochId.toString();
   entity.homeToken = event.params.homeCollection.toHexString() + "_" + event.params.homeTokenId.toString();
   entity.awayToken = event.params.awayCollection.toHexString() + "_" + event.params.awayTokenId.toString();
-  entity.winner = event.params.winner.equals(ZERO) ? entity.awayToken : entity.homeToken;
+  entity.winner = event.params.homeVictory.equals(ZERO) ? entity.awayToken : entity.homeToken;
 
   entity.save();
 }
@@ -128,17 +138,15 @@ export function handleTransfer(event: Transfer): void {
 }
 
 export function handleTransferERC721(event: TransferERC721): void {
+  let collection = getOrCreateTokenContract(event.address);
+  collection.save();
   let entity = getOrCreateToken(event.address, event.params.tokenId);
   let owner = getOrCreateOwner(event.params.to.toHexString());
-  let collection = getOrCreateTokenContract(event.address);
 
-  entity.contract = event.address.toHexString();
-  entity.tokenID = event.params.tokenId;
   entity.owner = event.params.to.toHexString();
 
   entity.save();
   owner.save();
-  collection.save();
 }
 
 export function handleBattlerCreation(event: BattlerCreation): void {
@@ -155,9 +163,9 @@ export function handleAddCollection(event: AddCollection): void {
   let entity = getOrCreateBattler("0");
   let collection = getOrCreateTokenContract(event.params.collection);
 
-  collection.offset = entity.metaSupply;
+  collection.offset = entity.globalSupply;
   collection.resolver = event.params.resolver;
-  entity.metaSupply = entity.metaSupply.plus(event.params.supply);
+  entity.globalSupply = entity.globalSupply.plus(event.params.supply);
 
   entity.save();
   collection.save();

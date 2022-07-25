@@ -2,12 +2,8 @@ const snarkjs = require("snarkjs");
 
 export const calculateBattleProof = async (homeStats, awayStats, rand) => {
   const input = {
-    healthA: homeStats[0],
-    healthB: awayStats[0],
-    healthPerTurnA: homeStats[1],
-    healthPerTurnB: awayStats[1],
-    damageA: homeStats[2],
-    damageB: awayStats[2],
+    homeStats,
+    awayStats,
     rand,
   };
 
@@ -15,5 +11,5 @@ export const calculateBattleProof = async (homeStats, awayStats, rand) => {
 
   const S = await snarkjs.plonk.exportSolidityCallData(proof, publicSignals);
 
-  return S.split(",")[0];
+  return [S.split(",")[0], publicSignals];
 };
